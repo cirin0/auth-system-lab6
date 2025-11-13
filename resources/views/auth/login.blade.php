@@ -41,6 +41,21 @@
             >
             @error('email')
             <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
+            @if(str_contains($message, 'підтвердіть ваш email'))
+                <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p class="text-sm text-yellow-800 mb-2">Не отримали лист?</p>
+                    <form method="POST" action="{{ route('resend.verification') }}">
+                        @csrf
+                        <input type="hidden" name="email" value="{{ old('email') }}">
+                        <button
+                            type="submit"
+                            class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded transition duration-200"
+                        >
+                            Відправити повторно
+                        </button>
+                    </form>
+                </div>
+            @endif
             @enderror
         </div>
 

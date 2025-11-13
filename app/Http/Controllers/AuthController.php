@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -47,10 +50,58 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'email_verified_at' => null,
         ]);
-        Auth::login($user);
 
-        return redirect()->route('dashboard')->with('success', 'Реєстрація успішна!');
+        $token = Str::random(64);
+
+        DB::table('email_verification_tokens')->insert([
+            'email' => $request->email,
+            'token' => $token,
+            'created_at' => now(),
+        ]);
+
+        $user->notify(new VerifyEmailNotification($token, $request->email));
+
+        return redirect()->route('login')
+            ->with('success', 'Реєстрація успішна! Перевірте вашу пошту для активації акаунту.');
+    }
+
+    public function verifyEmail(Request $request, $token)
+    {
+        $email = $request->query('email');
+
+        $verification = DB::table('email_verification_tokens')
+            ->where('token', $token)
+            ->where('email', $email)
+            ->first();
+
+        if (!$verification) {
+            return redirect()->route('login')
+                ->with('error', 'Невірне посилання для верифікації.');
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
+            return redirect()->route('login')
+                ->with('error', 'Користувача не знайдено.');
+        }
+
+        if ($user->email_verified_at) {
+            return redirect()->route('login')
+                ->with('success', 'Email вже верифіковано. Можете увійти.');
+        }
+
+        $user->email_verified_at = now();
+        $user->save();
+
+        DB::table('email_verification_tokens')
+            ->where('token', $token)
+            ->delete();
+
+        return redirect()->route('login')
+            ->with('success', 'Email успішно підтверджено! Тепер ви можете увійти.');
     }
 
     public function showLogin()
@@ -79,6 +130,12 @@ class AuthController extends Controller
                 ->with('error', 'Користувача не знайдено. Будь ласка, зареєструйтесь.');
         }
 
+        if (!$user->email_verified_at) {
+            return back()->withErrors([
+                'email' => 'Будь ласка, спочатку підтвердіть ваш email. Перевірте пошту.',
+            ])->onlyInput('email');
+        }
+
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $request->session()->regenerate();
             return redirect('/dashboard')->with('success', 'Вхід успішний!');
@@ -101,6 +158,35 @@ class AuthController extends Controller
     public function dashboard()
     {
         return view('dashboard');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($user->email_verified_at) {
+            return back()->with('error', 'Email вже верифіковано.');
+        }
+
+        DB::table('email_verification_tokens')
+            ->where('email', $request->email)
+            ->delete();
+
+        $token = Str::random(64);
+
+        DB::table('email_verification_tokens')->insert([
+            'email' => $request->email,
+            'token' => $token,
+            'created_at' => now(),
+        ]);
+
+        $user->notify(new VerifyEmailNotification($token, $request->email));
+
+        return back()->with('success', 'Лист для верифікації відправлено повторно!');
     }
 
 }
