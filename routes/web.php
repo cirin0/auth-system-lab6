@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -18,7 +19,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->name('resend.verification');
 });
 
+Route::get('/two-factor/verify', [TwoFactorController::class, 'showVerify'])->name('two-factor.verify');
+Route::post('/two-factor/verify', [TwoFactorController::class, 'verify']);
+
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::get('/two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
+    Route::post('/two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
+    Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])->name('two-factor.confirm');
+    Route::post('/two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
 });

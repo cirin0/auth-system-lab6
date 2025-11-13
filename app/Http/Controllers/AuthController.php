@@ -136,15 +136,20 @@ class AuthController extends Controller
             ])->onlyInput('email');
         }
 
-        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
-            $request->session()->regenerate();
-            return redirect('/dashboard')->with('success', 'Вхід успішний!');
+        if (!Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+            return back()->withErrors([
+                'email' => 'Невірний email або пароль.',
+            ])->onlyInput('email');
         }
 
-        return back()->withErrors([
-            'email' => 'Невірний email або пароль.',
-        ])->onlyInput('email');
+        if ($user->two_factor_enabled) {
+            Auth::logout(); // Вихід тимчасово
+            session(['2fa:user:id' => $user->id]);
+            return redirect()->route('two-factor.verify');
+        }
 
+        $request->session()->regenerate();
+        return redirect('/dashboard')->with('success', 'Вхід успішний!');
     }
 
     public function logout(Request $request)
