@@ -28,9 +28,19 @@ class AuthController extends Controller
                 'regex:/[0-9]/',
                 'regex:/[@$!%*#?&]/',
             ],
+            'g-recaptcha-response' => 'required|captcha',
         ], [
+            'name.required' => 'Ім\'я є обов\'язковим',
+            'name.max' => 'Ім\'я не може перевищувати 255 символів',
+            'email.required' => 'Email є обов\'язковим',
+            'email.email' => 'Введіть правильний email',
+            'email.unique' => 'Цей email вже зареєстрований',
+            'password.required' => 'Пароль є обов\'язковим',
+            'password.confirmed' => 'Паролі не співпадають',
             'password.min' => 'Пароль повинен містити мінімум 8 символів',
             'password.regex' => 'Пароль повинен містити великі та малі літери, цифри та спеціальні символи (@$!%*#?&)',
+            'g-recaptcha-response.required' => 'Будь ласка, підтвердіть, що ви не робот',
+            'g-recaptcha-response.captcha' => 'Помилка перевірки captcha',
         ]);
 
         $user = User::query()->create([
@@ -40,7 +50,7 @@ class AuthController extends Controller
         ]);
         Auth::login($user);
 
-        return redirect()->route('/dashboard')->with('success', 'Реєстрація успішна!');
+        return redirect()->route('dashboard')->with('success', 'Реєстрація успішна!');
     }
 
     public function showLogin()
@@ -53,6 +63,13 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'g-recaptcha-response' => 'required|captcha',
+        ], [
+            'email.required' => 'Email є обов\'язковим',
+            'email.email' => 'Введіть правильний email',
+            'password.required' => 'Пароль є обов\'язковим',
+            'g-recaptcha-response.required' => 'Будь ласка, підтвердіть, що ви не робот',
+            'g-recaptcha-response.captcha' => 'Помилка перевірки captcha',
         ]);
 
         $user = User::where('email', $request->email)->first();

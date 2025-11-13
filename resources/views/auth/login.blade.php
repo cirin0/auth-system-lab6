@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -7,8 +7,9 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Вхід</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {!! app('captcha')->renderJs() !!}
 </head>
-<body class="bg-gradient-to-br to-indigo-700 min-h-screen flex items-center justify-center p-5">
+<body class="bg-gray-300 min-h-screen flex items-center justify-center p-5">
 <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8">
     <h2 class="text-3xl font-bold text-center text-gray-800 mb-8">Вхід</h2>
 
@@ -53,6 +54,13 @@
                 required
             >
             @error('password')
+            <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6 flex items-center flex-col">
+            {!! app('captcha')->display() !!}
+            @error('g-recaptcha-response')
             <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
             @enderror
         </div>
