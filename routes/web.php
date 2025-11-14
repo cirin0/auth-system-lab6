@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,11 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/auth/github', [SocialAuthController::class, 'redirectToGithub'])->name('auth.github');
     Route::get('/auth/github/callback', [SocialAuthController::class, 'handleGithubCallback']);
+
+    Route::get('/password/reset', [PasswordResetController::class, 'showLinkRequestForm'])->name('password.request');
+    Route::post('/password/email', [PasswordResetController::class, 'sendResetLinkEmail'])->name('password.email');
+    Route::get('/password/reset/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/password/reset', [PasswordResetController::class, 'reset'])->name('password.update');
 });
 
 Route::get('/two-factor/verify', [TwoFactorController::class, 'showVerify'])->name('two-factor.verify');

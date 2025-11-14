@@ -83,6 +83,12 @@
         <p class="small" style="color:var(--c3);margin-top:-12px;margin-bottom:16px">{{ $message }}</p>
         @enderror
 
+        <div class="mb-6 text-right">
+            <a href="{{ route('password.request') }}" id="forgot-password-link" class="link small">
+                Забули пароль?
+            </a>
+        </div>
+
         <button type="submit" class="btn">
             Увійти
         </button>
@@ -95,5 +101,15 @@
         </a>
     </div>
 </div>
+
+<script>
+    document.getElementById('forgot-password-link')?.addEventListener('click', function (e) {
+        const email = document.getElementById('email')?.value;
+        if (email) {
+            e.preventDefault();
+            window.location.href = "{{ route('password.request') }}" + "?email=" + encodeURIComponent(email);
+        }
+    });
+</script>
 </body>
 </html>
