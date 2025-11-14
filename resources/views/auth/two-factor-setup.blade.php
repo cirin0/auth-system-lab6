@@ -8,87 +8,71 @@
     <title>Налаштування 2FA</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
-<header class="bg-purple-600 text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 py-4">
-        <h2 class="text-2xl font-bold">Налаштування 2FA</h2>
+<body class="simple-body">
+<div class="card max-w-2xl">
+    <h2 class="h1">Налаштування 2FA</h2>
+
+    <h3 class="h1" style="font-size:20px;margin-bottom:12px">Крок 1: Відскануйте QR код</h3>
+
+    <div class="mb-6 text-center" style="border:1px solid #ddd;border-radius:8px;padding:16px;background:#fff">
+        <div class="inline-block"
+             style="background:#fff;padding:12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+            {!! $qrCode !!}
+        </div>
+        <p class="small mt-2" style="color:#555">Відскануйте цей QR код за допомогою Google Authenticator або Authy</p>
     </div>
-</header>
 
-<main class="max-w-2xl mx-auto mt-10 px-4">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <h3 class="text-2xl font-bold text-gray-800 mb-6">Крок 1: Відскануйте QR код</h3>
+    <div class="notice" style="background:#fff">
+        <p class="small" style="margin:0 0 8px"><strong>Або введіть код вручну:</strong></p>
+        <code
+            style="background:#f7f7f7;padding:6px 10px;border-radius:6px;color:var(--c3);font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">{{ $secret }}</code>
+    </div>
 
-        <div class="bg-gray-50 rounded-lg p-6 mb-6 text-center">
-            <div class="inline-block bg-white p-4 rounded-lg shadow">
-                {!! $qrCode !!}
-            </div>
-            <p class="text-sm text-gray-600 mt-4">Відскануйте цей QR код за допомогою Google Authenticator або Authy</p>
+    <h3 class="h1" style="font-size:20px;margin-bottom:8px">Крок 2: Збережіть Recovery коди</h3>
+
+    <div class="mb-6" style="border:1px solid #ddd;border-radius:8px;padding:16px">
+        <p class="small" style="margin:0 0 12px;color:#555">
+            <strong>ВАЖЛИВО:</strong> Збережіть ці коди в безпечному місці! Вони потрібні, якщо ви втратите доступ до
+            телефону.
+        </p>
+        <div class="mt-2"
+             style="background:#fff;border:1px solid #eee;border-radius:6px;padding:12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;font-size:12px">
+            @foreach($recoveryCodes as $code)
+                <div class="mb-4" style="margin-bottom:8px">{{ $code }}</div>
+            @endforeach
         </div>
+        <button onclick="copyRecoveryCodes()" class="btn mt-3" style="width:auto">📋 Копіювати коди</button>
+    </div>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p class="text-sm text-blue-800 mb-2"><strong>Або введіть код вручну:</strong></p>
-            <code class="bg-white px-3 py-2 rounded text-blue-600 font-mono">{{ $secret }}</code>
-        </div>
+    <h3 class="h1" style="font-size:20px;margin-bottom:8px">Крок 3: Підтвердіть налаштування</h3>
 
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Крок 2: Збережіть Recovery коди</h3>
-
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-            <p class="text-yellow-800 mb-4">
-                <strong>⚠️ ВАЖЛИВО:</strong> Збережіть ці коди в безпечному місці! Вони потрібні, якщо ви втратите
-                доступ до телефону.
-            </p>
-            <div class="bg-white rounded p-4 font-mono text-sm">
-                @foreach($recoveryCodes as $code)
-                    <div class="mb-2">{{ $code }}</div>
-                @endforeach
-            </div>
-            <button
-                onclick="copyRecoveryCodes()"
-                class="mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded transition duration-200"
+    <form method="POST" action="{{ route('two-factor.confirm') }}">
+        @csrf
+        <div class="mb-6">
+            <label class="label">Введіть 6-значний код з додатку</label>
+            <input
+                type="text"
+                name="code"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                class="input"
+                placeholder="000000"
+                required
+                autofocus
             >
-                📋 Копіювати коди
-            </button>
+            @error('code')
+            <p class="small" style="color:var(--c3)">{{ $message }}</p>
+            @enderror
         </div>
 
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Крок 3: Підтвердіть налаштування</h3>
-
-        <form method="POST" action="{{ route('two-factor.confirm') }}">
-            @csrf
-            <div class="mb-6">
-                <label class="block text-gray-700 font-semibold mb-2">Введіть 6-значний код з додатку</label>
-                <input
-                    type="text"
-                    name="code"
-                    maxlength="6"
-                    pattern="[0-9]{6}"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 text-center text-2xl font-mono tracking-widest"
-                    placeholder="000000"
-                    required
-                    autofocus
-                >
-                @error('code')
-                <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
-                @enderror
+        <div>
+            <button type="submit" class="btn">Підтвердити і активувати</button>
+            <div class="text-center" style="margin-top:12px">
+                <a href="{{ route('two-factor.show') }}" class="link">Скасувати</a>
             </div>
-
-            <div class="flex gap-4">
-                <button
-                    type="submit"
-                    class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
-                >
-                    Підтвердити і активувати
-                </button>
-                <a
-                    href="{{ route('two-factor.show') }}"
-                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg text-center transition duration-200"
-                >
-                    Скасувати
-                </a>
-            </div>
-        </form>
-    </div>
-</main>
+        </div>
+    </form>
+</div>
 
 <script>
     function copyRecoveryCodes() {

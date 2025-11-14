@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,9 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/verify-email/{token}', [AuthController::class, 'verifyEmail'])->name('verify.email');
     Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->name('resend.verification');
+
+    Route::get('/auth/github', [SocialAuthController::class, 'redirectToGithub'])->name('auth.github');
+    Route::get('/auth/github/callback', [SocialAuthController::class, 'handleGithubCallback']);
 });
 
 Route::get('/two-factor/verify', [TwoFactorController::class, 'showVerify'])->name('two-factor.verify');
@@ -30,4 +34,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])->name('two-factor.confirm');
     Route::post('/two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
+
+    Route::post('/auth/github/unlink', [SocialAuthController::class, 'unlinkGithub'])->name('auth.github.unlink');
 });

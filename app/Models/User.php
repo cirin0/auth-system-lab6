@@ -24,6 +24,12 @@ class User extends Authenticatable
         'two_factor_secret',
         'two_factor_enabled',
         'two_factor_recovery_codes',
+        'github_id',
+        'github_token',
+        'github_refresh_token',
+        'avatar',
+        'provider',
+        'email_verified_at',
     ];
 
     /**
@@ -36,6 +42,8 @@ class User extends Authenticatable
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'github_token',
+        'github_refresh_token',
     ];
 
     /**
