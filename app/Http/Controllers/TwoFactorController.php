@@ -34,6 +34,22 @@ class TwoFactorController extends Controller
         $user->two_factor_secret = encrypt($secret);
         $user->save();
 
+        $recoveryCodes = $this->generateRecoveryCodes();
+        session(['2fa:setup:recovery_codes' => $recoveryCodes]);
+
+        return redirect()->route('two-factor.setup');
+    }
+
+    public function showSetup()
+    {
+        $user = Auth::user();
+
+        if (!$user->two_factor_secret) {
+            return redirect()->route('two-factor.show');
+        }
+
+        $secret = decrypt($user->two_factor_secret);
+
         $qrCodeUrl = $this->google2fa->getQRCodeUrl(
             config('app.name'),
             $user->email,
@@ -48,7 +64,7 @@ class TwoFactorController extends Controller
         $writer = new Writer($renderer);
         $qrCodeSvg = $writer->writeString($qrCodeUrl);
 
-        $recoveryCodes = $this->generateRecoveryCodes();
+        $recoveryCodes = session('2fa:setup:recovery_codes', $this->generateRecoveryCodes());
 
         return view('auth.two-factor-setup', [
             'qrCode' => $qrCodeSvg,
@@ -73,9 +89,11 @@ class TwoFactorController extends Controller
         }
 
         $user->two_factor_enabled = true;
-        $recoveryCodes = $this->generateRecoveryCodes();
+        $recoveryCodes = session('2fa:setup:recovery_codes', $this->generateRecoveryCodes());
         $user->two_factor_recovery_codes = encrypt(json_encode($recoveryCodes));
         $user->save();
+
+        session()->forget('2fa:setup:recovery_codes');
 
         return redirect()->route('two-factor.show')
             ->with('success', '2FA успішно активовано!');
@@ -125,7 +143,6 @@ class TwoFactorController extends Controller
 
         $secret = decrypt($user->two_factor_secret);
 
-        // Перевірка коду або recovery коду
         if ($this->google2fa->verifyKey($secret, $request->code)) {
             Auth::login($user);
             session()->forget('2fa:user:id');
