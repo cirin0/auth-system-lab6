@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -24,6 +23,30 @@ class SocialAuthController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('login')
                 ->with('error', 'Помилка авторизації через GitHub. Спробуйте ще раз.');
+        }
+
+        if (Auth::check()) {
+            $currentUser = Auth::user();
+
+            $existingUserWithGithub = User::where('github_id', $githubUser->getId())
+                ->where('id', '!=', $currentUser->id)
+                ->first();
+
+            if ($existingUserWithGithub) {
+                return redirect()->route('dashboard')
+                    ->with('error', 'Цей GitHub акаунт вже прив\'язаний до іншого користувача.');
+            }
+
+            $currentUser->update([
+                'github_id' => $githubUser->getId(),
+                'github_token' => $githubUser->token,
+                'github_refresh_token' => $githubUser->refreshToken,
+                'avatar' => $githubUser->getAvatar(),
+            ]);
+
+
+            return redirect()->route('dashboard')
+                ->with('success', 'GitHub успішно підключено до вашого акаунту!');
         }
 
         $user = User::where('github_id', $githubUser->getId())->first();
@@ -55,7 +78,7 @@ class SocialAuthController extends Controller
                 'github_refresh_token' => $githubUser->refreshToken,
                 'avatar' => $githubUser->getAvatar(),
                 'provider' => 'github',
-                'email_verified_at' => now(), // Автоматична верифікація
+                'email_verified_at' => now(),
             ]);
 
             if ($existingUser->two_factor_enabled) {
@@ -100,8 +123,6 @@ class SocialAuthController extends Controller
             'github_refresh_token' => null,
             'provider' => null,
         ]);
-
-        Log::log('info', '4. GitHub account unlinked successfully for user ID: ' . $user->id);
 
         return back()->with('success', 'GitHub від\'єднано від акаунту.');
     }
