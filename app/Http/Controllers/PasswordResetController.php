@@ -78,23 +78,21 @@ class PasswordResetController extends Controller
             ->where('email', $request->email)
             ->first();
 
+        $error = null;
+
         if (!$passwordReset) {
-            return back()->withErrors(['email' => 'Невірне посилання для відновлення пароля.']);
-        }
-
-        $tokenCreatedAt = Carbon::parse($passwordReset->created_at);
-        $expirationTime = 60;
-
-        if (Carbon::now()->diffInMinutes($tokenCreatedAt) > $expirationTime) {
+            $error = 'Невірне посилання для відновлення пароля.';
+        } elseif (Carbon::now()->diffInMinutes(Carbon::parse($passwordReset->created_at)) > 60) {
             DB::table('password_reset_tokens')
                 ->where('email', $request->email)
                 ->delete();
-
-            return back()->withErrors(['email' => 'Посилання для відновлення пароля застаріло. Запросіть нове.']);
+            $error = 'Посилання для відновлення пароля застаріло. Запросіть нове.';
+        } elseif (!Hash::check($request->token, $passwordReset->token)) {
+            $error = 'Невірний токен.';
         }
 
-        if (!Hash::check($request->token, $passwordReset->token)) {
-            return back()->withErrors(['email' => 'Невірний токен.']);
+        if ($error) {
+            return back()->withErrors(['email' => $error]);
         }
 
         $user = User::where('email', $request->email)->first();

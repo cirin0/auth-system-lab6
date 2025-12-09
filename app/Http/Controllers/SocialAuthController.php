@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Http\Request;
+use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -11,6 +11,9 @@ use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
+
+    const DASHBOARD = '/dashboard';
+
     public function redirectToGithub()
     {
         return Socialite::driver('github')->redirect();
@@ -20,78 +23,86 @@ class SocialAuthController extends Controller
     {
         try {
             $githubUser = Socialite::driver('github')->user();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return redirect()->route('login')
                 ->with('error', 'Помилка авторизації через GitHub. Спробуйте ще раз.');
         }
 
         if (Auth::check()) {
-            $currentUser = Auth::user();
-
-            $existingUserWithGithub = User::where('github_id', $githubUser->getId())
-                ->where('id', '!=', $currentUser->id)
-                ->first();
-
-            if ($existingUserWithGithub) {
-                return redirect()->route('dashboard')
-                    ->with('error', 'Цей GitHub акаунт вже прив\'язаний до іншого користувача.');
-            }
-
-            $currentUser->update([
-                'github_id' => $githubUser->getId(),
-                'github_token' => $githubUser->token,
-                'github_refresh_token' => $githubUser->refreshToken,
-                'avatar' => $githubUser->getAvatar(),
-            ]);
-
-
-            return redirect()->route('dashboard')
-                ->with('success', 'GitHub успішно підключено до вашого акаунту!');
+            return $this->linkGithubToCurrentUser($githubUser);
         }
 
+        return $this->loginOrRegisterWithGithub($githubUser);
+    }
+
+    private function linkGithubToCurrentUser($githubUser)
+    {
+        $currentUser = Auth::user();
+
+        $existingUserWithGithub = User::where('github_id', $githubUser->getId())
+            ->where('id', '!=', $currentUser->id)
+            ->first();
+
+        if ($existingUserWithGithub) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Цей GitHub акаунт вже прив\'язаний до іншого користувача.');
+        }
+
+        $currentUser->update([
+            'github_id' => $githubUser->getId(),
+            'github_token' => $githubUser->token,
+            'github_refresh_token' => $githubUser->refreshToken,
+            'avatar' => $githubUser->getAvatar(),
+        ]);
+
+        return redirect()->route('dashboard')
+            ->with('success', 'GitHub успішно підключено до вашого акаунту!');
+    }
+
+    private function loginOrRegisterWithGithub($githubUser)
+    {
         $user = User::where('github_id', $githubUser->getId())->first();
 
         if ($user) {
-            $user->update([
-                'github_token' => $githubUser->token,
-                'github_refresh_token' => $githubUser->refreshToken,
-                'avatar' => $githubUser->getAvatar(),
-            ]);
-
-            if ($user->two_factor_enabled) {
-                Auth::logout();
-                session(['2fa:user:id' => $user->id]);
-                return redirect()->route('two-factor.verify');
-            }
-
-            Auth::login($user);
-            return redirect('/dashboard')->with('success', 'Вхід через GitHub успішний!');
+            return $this->loginExistingGithubUser($user, $githubUser);
         }
 
         $existingUser = User::where('email', $githubUser->getEmail())->first();
 
         if ($existingUser) {
-
-            $existingUser->update([
-                'github_id' => $githubUser->getId(),
-                'github_token' => $githubUser->token,
-                'github_refresh_token' => $githubUser->refreshToken,
-                'avatar' => $githubUser->getAvatar(),
-                'provider' => 'github',
-                'email_verified_at' => now(),
-            ]);
-
-            if ($existingUser->two_factor_enabled) {
-                Auth::logout();
-                session(['2fa:user:id' => $existingUser->id]);
-                return redirect()->route('two-factor.verify');
-            }
-
-            Auth::login($existingUser);
-            return redirect('/dashboard')
-                ->with('success', 'GitHub прив\'язано до вашого акаунту!');
+            return $this->linkGithubToExistingUser($existingUser, $githubUser);
         }
 
+        return $this->createNewGithubUser($githubUser);
+    }
+
+    private function loginExistingGithubUser($user, $githubUser)
+    {
+        $user->update([
+            'github_token' => $githubUser->token,
+            'github_refresh_token' => $githubUser->refreshToken,
+            'avatar' => $githubUser->getAvatar(),
+        ]);
+
+        return $this->authenticateUser($user, 'Вхід через GitHub успішний!');
+    }
+
+    private function linkGithubToExistingUser($existingUser, $githubUser)
+    {
+        $existingUser->update([
+            'github_id' => $githubUser->getId(),
+            'github_token' => $githubUser->token,
+            'github_refresh_token' => $githubUser->refreshToken,
+            'avatar' => $githubUser->getAvatar(),
+            'provider' => 'github',
+            'email_verified_at' => now(),
+        ]);
+
+        return $this->authenticateUser($existingUser, 'GitHub прив\'язано до вашого акаунту!');
+    }
+
+    private function createNewGithubUser($githubUser)
+    {
         $newUser = User::create([
             'name' => $githubUser->getName() ?? $githubUser->getNickname(),
             'email' => $githubUser->getEmail(),
@@ -105,11 +116,23 @@ class SocialAuthController extends Controller
         ]);
 
         Auth::login($newUser);
-        return redirect('/dashboard')
+        return redirect(self::DASHBOARD)
             ->with('success', 'Реєстрація через GitHub успішна!');
     }
 
-    public function unlinkGithub(Request $request)
+    private function authenticateUser($user, $successMessage)
+    {
+        if ($user->two_factor_enabled) {
+            Auth::logout();
+            session(['2fa:user:id' => $user->id]);
+            return redirect()->route('two-factor.verify');
+        }
+
+        Auth::login($user);
+        return redirect(self::DASHBOARD)->with('success', $successMessage);
+    }
+
+    public function unlinkGithub()
     {
         $user = Auth::user();
 

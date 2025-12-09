@@ -37,10 +37,11 @@
             <form method="POST" action="{{ route('two-factor.disable') }}">
                 @csrf
                 <div class="mb-4">
-                    <label class="label">Введіть ваш пароль для підтвердження</label>
+                    <label class="label" for="password">Введіть ваш пароль для підтвердження</label>
                     <input
                         type="password"
                         name="password"
+                        id="password"
                         class="input"
                         required
                     >

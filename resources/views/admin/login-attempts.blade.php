@@ -31,18 +31,19 @@
         <h3 style="font-size:18px;font-weight:700;color:var(--c1);margin-bottom:16px">Фільтри</h3>
         <form method="GET" action="{{ route('admin.login-attempts') }}" style="display:flex;gap:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
-                <label class="label">Email</label>
+                <label class="label" for="name">Email</label>
                 <input
                     type="text"
                     name="email"
+                    id="name"
                     value="{{ request('email') }}"
                     class="input"
                     placeholder="Шукати по email"
                 >
             </div>
             <div style="flex:1;min-width:200px">
-                <label class="label">Статус</label>
-                <select name="successful" class="input">
+                <label class="label" for="select">Статус</label>
+                <select name="successful" class="input" id="select">
                     <option value="">Всі</option>
                     <option value="1" {{ request('successful') === '1' ? 'selected' : '' }}>Успішні</option>
                     <option value="0" {{ request('successful') === '0' ? 'selected' : '' }}>Невдалі</option>

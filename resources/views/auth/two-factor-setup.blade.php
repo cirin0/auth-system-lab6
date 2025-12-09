@@ -49,10 +49,11 @@
     <form method="POST" action="{{ route('two-factor.confirm') }}">
         @csrf
         <div class="mb-6">
-            <label class="label">Введіть 6-значний код з додатку</label>
+            <label class="label" for="code">Введіть 6-значний код з додатку</label>
             <input
                 type="text"
                 name="code"
+                id="code"
                 maxlength="6"
                 pattern="[0-9]{6}"
                 class="input"

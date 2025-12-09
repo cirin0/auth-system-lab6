@@ -96,19 +96,19 @@ class AuthController extends Controller
         }
 
         if ($user->email_verified_at) {
-            return redirect()->route('login')
-                ->with('success', 'Email вже верифіковано. Можете увійти.');
+            $message = 'Email вже верифіковано. Можете увійти.';
+        } else {
+            $user->email_verified_at = now();
+            $user->save();
+
+            DB::table('email_verification_tokens')
+                ->where('token', $token)
+                ->delete();
+
+            $message = 'Email успішно підтверджено! Тепер ви можете увійти.';
         }
 
-        $user->email_verified_at = now();
-        $user->save();
-
-        DB::table('email_verification_tokens')
-            ->where('token', $token)
-            ->delete();
-
-        return redirect()->route('login')
-            ->with('success', 'Email успішно підтверджено! Тепер ви можете увійти.');
+        return redirect()->route('login')->with('success', $message);
     }
 
     public function showLogin()
@@ -132,7 +132,23 @@ class AuthController extends Controller
 
         $email = $request->email;
         $ipAddress = $request->ip();
+        $response = null;
 
+        $response = $this->handleLockedAccount($email, $ipAddress, $request);
+        if ($response) {
+            return $response;
+        }
+
+        $response = $this->handleUserValidation($email, $ipAddress, $request);
+        if ($response) {
+            return $response;
+        }
+
+        return $this->processSuccessfulLogin($request, $email, $ipAddress);
+    }
+
+    protected function handleLockedAccount($email, $ipAddress, Request $request)
+    {
         if ($this->isLocked($email, $ipAddress)) {
             $remainingTime = $this->getRemainingLockoutTime($email, $ipAddress);
             $this->logLoginAttempt($email, $ipAddress, $request->userAgent(), false, "Акаунт тимчасово заблоковано");
@@ -140,41 +156,57 @@ class AuthController extends Controller
                 'email' => "Забагато невдалих спроб входу. Спробуйте знову через {$remainingTime} хвилин.",
             ])->onlyInput('email');
         }
+        return null;
+    }
 
-        $user = User::where('email', $request->email)->first();
+    protected function handleUserValidation($email, $ipAddress, Request $request)
+    {
+        $user = User::where('email', $email)->first();
 
+        $userCheckError = $this->validateUserExists($user, $email, $ipAddress, $request);
+        if ($userCheckError) {
+            return $userCheckError;
+        }
+
+        return $this->validateCredentials($user, $email, $ipAddress, $request);
+    }
+
+    protected function validateUserExists($user, $email, $ipAddress, Request $request)
+    {
         if (!$user) {
             $this->logLoginAttempt($email, $ipAddress, $request->userAgent(), false, "Користувача не знайдено");
-
             return redirect()->route('register')
                 ->with('error', 'Користувача не знайдено. Будь ласка, зареєструйтесь.');
         }
 
         if (!$user->email_verified_at) {
             $this->logLoginAttempt($email, $ipAddress, $request->userAgent(), false, "Email не верифіковано");
-
             return back()->withErrors([
                 'email' => 'Будь ласка, спочатку підтвердіть ваш email. Перевірте пошту.',
             ])->onlyInput('email');
         }
 
+        return null;
+    }
+
+    protected function validateCredentials($user, $email, $ipAddress, Request $request)
+    {
         if (!Auth::attempt(['email' => $email, 'password' => $request->password])) {
             $this->logLoginAttempt($email, $ipAddress, $request->userAgent(), false, "Невірний пароль");
-
             $attempts = $this->getFailedAttempts($email, $ipAddress);
             $remaining = self::MAX_LOGIN_ATTEMPTS - $attempts;
-
-            if ($remaining > 0) {
-                return back()->withErrors([
-                    'email' => "Невірний email або пароль. Залишилось спроб: {$remaining}",
-                ])->onlyInput('email');
-            } else {
-                return back()->withErrors([
-                    'email' => "Забагато невдалих спроб входу. Акаунт заблоковано на " . self::LOCKOUT_TIME . " хвилин.",
-                ])->onlyInput('email');
-            }
+            $message = $remaining > 0
+                ? "Невірний email або пароль. Залишилось спроб: {$remaining}"
+                : "Забагато невдалих спроб входу. Акаунт заблоковано на " . self::LOCKOUT_TIME . " хвилин.";
+            return back()->withErrors(['email' => $message])->onlyInput('email');
         }
 
+        return null;
+    }
+
+    protected function processSuccessfulLogin(Request $request, $email, $ipAddress)
+    {
+        $user = User::where('email', $email)->first();
         $this->logLoginAttempt($email, $ipAddress, $request->userAgent(), true, null);
 
         if ($user->two_factor_enabled) {
@@ -281,5 +313,4 @@ class AuthController extends Controller
 
         return back()->with('success', 'Лист для верифікації відправлено повторно!');
     }
-
 }

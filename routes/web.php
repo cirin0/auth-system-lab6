@@ -7,16 +7,18 @@ use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
+const LOGIN = '/login';
+
 Route::get('/', function () {
-    return redirect('/login');
+    return redirect(LOGIN);
 });
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
 
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::get(LOGIN, [AuthController::class, 'showLogin'])->name('login');
+    Route::post(LOGIN, [AuthController::class, 'login']);
 
     Route::get('/verify-email/{token}', [AuthController::class, 'verifyEmail'])->name('verify.email');
     Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->name('resend.verification');

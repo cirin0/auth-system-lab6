@@ -13,6 +13,10 @@ use PragmaRX\Google2FA\Google2FA;
 
 class TwoFactorController extends Controller
 {
+
+    private const SESSION_RECOVERY_CODES = '2fa:setup:recovery_codes';
+    private const SESSION_USER_ID = '2fa:user:id';
+
     protected $google2fa;
 
     public function __construct()
@@ -25,7 +29,7 @@ class TwoFactorController extends Controller
         return view('auth.two-factor');
     }
 
-    public function enable(Request $request)
+    public function enable()
     {
         $user = Auth::user();
 
@@ -64,7 +68,7 @@ class TwoFactorController extends Controller
         $writer = new Writer($renderer);
         $qrCodeSvg = $writer->writeString($qrCodeUrl);
 
-        $recoveryCodes = session('2fa:setup:recovery_codes', $this->generateRecoveryCodes());
+        $recoveryCodes = session(self::SESSION_RECOVERY_CODES, $this->generateRecoveryCodes());
 
         return view('auth.two-factor-setup', [
             'qrCode' => $qrCodeSvg,
@@ -89,11 +93,11 @@ class TwoFactorController extends Controller
         }
 
         $user->two_factor_enabled = true;
-        $recoveryCodes = session('2fa:setup:recovery_codes', $this->generateRecoveryCodes());
+        $recoveryCodes = session(self::SESSION_RECOVERY_CODES, $this->generateRecoveryCodes());
         $user->two_factor_recovery_codes = encrypt(json_encode($recoveryCodes));
         $user->save();
 
-        session()->forget('2fa:setup:recovery_codes');
+        session()->forget(self::SESSION_RECOVERY_CODES);
 
         return redirect()->route('two-factor.show')
             ->with('success', '2FA успішно активовано!');
@@ -121,7 +125,7 @@ class TwoFactorController extends Controller
 
     public function showVerify()
     {
-        if (!session('2fa:user:id')) {
+        if (!session(self::SESSION_USER_ID)) {
             return redirect()->route('login');
         }
 
@@ -134,7 +138,7 @@ class TwoFactorController extends Controller
             'code' => 'required|string',
         ]);
 
-        $userId = session('2fa:user:id');
+        $userId = session(self::SESSION_USER_ID);
         $user = User::query()->find($userId);
 
         if (!$user) {
@@ -142,31 +146,28 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
+        $isValidCode = $this->google2fa->verifyKey($secret, $request->code);
+        $warning = null;
 
-        if ($this->google2fa->verifyKey($secret, $request->code)) {
-            Auth::login($user);
-            session()->forget('2fa:user:id');
-            $request->session()->regenerate();
+        if (!$isValidCode) {
+            $recoveryCodes = json_decode(decrypt($user->two_factor_recovery_codes), true);
 
-            return redirect()->intended('/dashboard');
-        }
+            if (!in_array($request->code, $recoveryCodes)) {
+                return back()->withErrors(['code' => 'Невірний код.']);
+            }
 
-        $recoveryCodes = json_decode(decrypt($user->two_factor_recovery_codes), true);
-
-        if (in_array($request->code, $recoveryCodes)) {
             $recoveryCodes = array_diff($recoveryCodes, [$request->code]);
             $user->two_factor_recovery_codes = encrypt(json_encode(array_values($recoveryCodes)));
             $user->save();
-
-            Auth::login($user);
-            session()->forget('2fa:user:id');
-            $request->session()->regenerate();
-
-            return redirect()->intended('/dashboard')
-                ->with('warning', 'Ви використали recovery код. Залишилось: ' . count($recoveryCodes));
+            $warning = 'Ви використали recovery код. Залишилось: ' . count($recoveryCodes);
         }
 
-        return back()->withErrors(['code' => 'Невірний код.']);
+        Auth::login($user);
+        session()->forget(self::SESSION_USER_ID);
+        $request->session()->regenerate();
+
+        $redirect = redirect()->intended('/dashboard');
+        return $warning ? $redirect->with('warning', $warning) : $redirect;
     }
 
     protected function generateRecoveryCodes()
